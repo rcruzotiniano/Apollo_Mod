@@ -75,7 +75,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--conf_dir",
-        default="Exps/Apollo/config.yaml",
+        default="Exps/Apollo_Mod/config.yaml",
         help="Full path to save best validation model",
     )
     

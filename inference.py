@@ -15,8 +15,8 @@ warnings.filterwarnings("ignore")
 # RUTAS
 # =========================================================
 INPUT_DIR = "/content/drive/MyDrive/Apollo"
-CKPT_PATH = "/content/Apollo/model/apollo_model_uni.ckpt"
-CONFIG_PATH = "/content/Apollo/configs/config_apollo_uni.yaml"
+CKPT_PATH = "/content/Apollo_Mod/model/apollo_model_uni.ckpt"
+CONFIG_PATH = "/content/Apollo_Mod/configs/config_apollo_uni.yaml"
 
 # Carpeta raíz de salida
 EDITED_ROOT = os.path.join(INPUT_DIR, "Editado IA")

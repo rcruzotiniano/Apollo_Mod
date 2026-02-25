@@ -6,7 +6,7 @@
   <strong>Kai Li<sup>1,2</sup>, Yi Luo<sup>2</sup></strong><br>
     <strong><sup>1</sup>Tsinghua University, Beijing, China</strong><br>
     <strong><sup>2</sup>Tencent AI Lab, Shenzhen, China</strong><br>
-  <a href="https://arxiv.org/abs/2409.08514">ArXiv</a> | <a href="https://cslikai.cn/Apollo/">Demo</a>
+  <a href="https://arxiv.org/abs/2409.08514">ArXiv</a> | <a href="https://cslikai.cn/Apollo_Mod/">Demo</a>
 
 <p align="center">
   <img src="https://visitor-badge.laobi.icu/badge?page_id=JusperLee.Apollo" alt="访客统计" />
@@ -25,7 +25,7 @@ Audio restoration has become increasingly significant in modern society, not onl
 ## 🔥 News
 
 - [2025.03.07] We released the training data preprocessing code on [Apollo-data-preprocess](https://github.com/JusperLee/Apollo-data-preprocess).
-- [2024.09.10] Apollo is now available on [ArXiv](#) and [Demo](https://cslikai.cn/Apollo/).
+- [2024.09.10] Apollo is now available on [ArXiv](#) and [Demo](https://cslikai.cn/Apollo_Mod/).
 - [2024.09.10] Apollo checkpoints and pre-trained models are available for download.
 
 ## ⚡️ Installation
