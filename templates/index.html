@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Apollo Web</title>
+</head>
+<body>
+    <h2>Apollo Enhancer</h2>
+
+    <label>Modelo:</label>
+    <select id="model">
+        {% for m in models %}
+        <option value="{{m}}">{{m}}</option>
+        {% endfor %}
+    </select>
+
+    <br><br>
+
+    <label>Ruta carpeta:</label>
+    <input type="text" id="path" placeholder="C:\Musica">
+
+    <br><br>
+
+    <button onclick="run()">Procesar</button>
+
+    <p id="status"></p>
+
+<script>
+function run() {
+    const model = document.getElementById("model").value;
+    const path = document.getElementById("path").value;
+
+    fetch("/process", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            model: model,
+            input_dir: path
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("status").innerText = data.status || data.error;
+    });
+}
+</script>
+
+</body>
+</html>
