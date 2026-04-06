@@ -32,7 +32,7 @@ input_dir = input(">> ").strip().strip('"')
 
 cmd = [
     sys.executable,   # 🔥 ESTE es el cambio clave
-    "inference.py",
+    "inference_dskt.py",
     "--input_dir", input_dir,
     "--ckpt", ckpt,
     "--config", config

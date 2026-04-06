@@ -31,10 +31,6 @@ INPUT_DIR = args.input_dir
 CKPT_PATH = args.ckpt
 CONFIG_PATH = args.config
 
-# Carpeta raíz de salida
-EDITED_ROOT = os.path.join(INPUT_DIR, "Editado IA")
-os.makedirs(EDITED_ROOT, exist_ok=True)
-
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -86,7 +82,6 @@ def process_file(input_wav, output_wav):
 
     i = 0
 
-    # Barra de progreso suave
     total_steps = (test_data.shape[1] + step - 1) // step
     pbar = tqdm(
         total=total_steps,
@@ -146,42 +141,67 @@ model = look2hear.models.BaseModel.from_pretrain(
 model.eval()
 
 # =========================================================
-# PROCESAMIENTO POR SUBCARPETAS
+# PROCESAMIENTO GENERAL
 # =========================================================
 audio_exts = (".wav", ".mp3", ".flac", ".aiff", ".m4a")
 
-subfolders = [
-    f for f in os.listdir(INPUT_DIR)
-    if os.path.isdir(os.path.join(INPUT_DIR, f)) and f != "Editado IA"
-]
+items = os.listdir(INPUT_DIR)
 
-print(f"Carpetas encontradas: {len(subfolders)}")
+print(f"Elementos encontrados: {len(items)}")
 
-for folder in subfolders:
+for item in items:
 
-    input_folder = os.path.join(INPUT_DIR, folder)
-    output_folder = os.path.join(EDITED_ROOT, f"{folder}_IA")
+    item_path = os.path.join(INPUT_DIR, item)
 
-    os.makedirs(output_folder, exist_ok=True)
+    # ===============================
+    # ARCHIVOS SUELTOS
+    # ===============================
+    if os.path.isfile(item_path) and item.lower().endswith(audio_exts):
 
-    files = sorted(
-        f for f in os.listdir(input_folder)
-        if f.lower().endswith(audio_exts)
-    )
-
-    print(f"\nProcesando carpeta: {folder} ({len(files)} archivos)")
-
-    for idx, fname in enumerate(files, 1):
-
-        in_path = os.path.join(input_folder, fname)
-        out_name = os.path.splitext(fname)[0] + ".wav"
-        out_path = os.path.join(output_folder, out_name)
-
-        if os.path.exists(out_path):
+        # Ignorar ya procesados
+        if item.lower().endswith("_ia.wav"):
             continue
 
-        print(f"[{idx}/{len(files)}] Procesando {fname}")
-        process_file(in_path, out_path)
+        name, _ = os.path.splitext(item)
+        output_path = os.path.join(INPUT_DIR, f"{name}_IA.wav")
+
+        # Si ya existe salida, saltar
+        if os.path.exists(output_path):
+            continue
+
+        print(f"\nProcesando archivo: {item}")
+        process_file(item_path, output_path)
+
+    # ===============================
+    # CARPETAS
+    # ===============================
+    elif os.path.isdir(item_path) and not item.lower().endswith("_ia"):
+
+        output_folder = os.path.join(INPUT_DIR, f"{item}_IA")
+        os.makedirs(output_folder, exist_ok=True)
+
+        files = sorted(
+            f for f in os.listdir(item_path)
+            if f.lower().endswith(audio_exts)
+            and not f.lower().endswith("_ia.wav")
+        )
+
+        print(f"\nProcesando carpeta: {item} ({len(files)} archivos)")
+
+        for idx, fname in enumerate(files, 1):
+
+            in_path = os.path.join(item_path, fname)
+
+            name, _ = os.path.splitext(fname)
+            out_name = f"{name}_IA.wav"
+            out_path = os.path.join(output_folder, out_name)
+
+            # Saltar si ya existe
+            if os.path.exists(out_path):
+                continue
+
+            print(f"[{idx}/{len(files)}] Procesando {fname}")
+            process_file(in_path, out_path)
 
 # =========================================================
 # LIMPIEZA
