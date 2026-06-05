@@ -18,10 +18,6 @@ INPUT_DIR = "/content/drive/MyDrive/Apollo"
 CKPT_PATH = "/content/Apollo_Mod/model/pytorch_model.bin"
 CONFIG_PATH = "/content/Apollo_Mod/configs/apollo.yaml"
 
-# Carpeta raíz de salida
-EDITED_ROOT = os.path.join(INPUT_DIR, "Editado IA")
-os.makedirs(EDITED_ROOT, exist_ok=True)
-
 # =========================================================
 # UTILIDADES
 # =========================================================
@@ -39,21 +35,25 @@ def save_audio(file_path, audio, samplerate=44100):
 
 def process_chunk(chunk):
     chunk = chunk.unsqueeze(0).cuda()
+
     with torch.no_grad():
         return model(chunk).squeeze(0).squeeze(0).cpu()
 
 def _getWindowingArray(window_size, fade_size):
     fadein = torch.linspace(1, 1, fade_size)
     fadeout = torch.linspace(0, 0, fade_size)
+
     window = torch.ones(window_size)
     window[-fade_size:] *= fadeout
     window[:fade_size] *= fadein
+
     return window
 
 # =========================================================
 # PROCESAMIENTO POR ARCHIVO
 # =========================================================
 def main(input_wav, output_wav):
+
     test_data, samplerate = load_audio(input_wav)
 
     C = chunk_size * samplerate
@@ -65,7 +65,11 @@ def main(input_wav, output_wav):
         test_data = test_data.unsqueeze(0)
 
     if test_data.shape[1] > 2 * border and border > 0:
-        test_data = torch.nn.functional.pad(test_data, (border, border), mode='reflect')
+        test_data = torch.nn.functional.pad(
+            test_data,
+            (border, border),
+            mode="reflect"
+        )
 
     windowingArray = _getWindowingArray(C, fade_size)
 
@@ -73,14 +77,23 @@ def main(input_wav, output_wav):
     counter = torch.zeros_like(result)
 
     i = 0
-    pbar = tqdm(total=test_data.shape[1], desc="Processing chunks", leave=False)
+
+    pbar = tqdm(
+        total=test_data.shape[1],
+        desc="Processing chunks",
+        leave=False
+    )
 
     while i < test_data.shape[1]:
+
         part = test_data[:, i:i + C]
         length = part.shape[-1]
 
         if length < C:
-            part = torch.nn.functional.pad(part, (0, C - length))
+            part = torch.nn.functional.pad(
+                part,
+                (0, C - length)
+            )
 
         out = process_chunk(part)
 
@@ -91,8 +104,13 @@ def main(input_wav, output_wav):
         elif i + C >= test_data.shape[1]:
             window[-fade_size:] = 1
 
-        result[..., i:i+length] += out[..., :length] * window[:length]
-        counter[..., i:i+length] += window[:length]
+        result[..., i:i + length] += (
+            out[..., :length] * window[:length]
+        )
+
+        counter[..., i:i + length] += (
+            window[:length]
+        )
 
         i += step
         pbar.update(step)
@@ -100,12 +118,14 @@ def main(input_wav, output_wav):
     pbar.close()
 
     final_output = (result / counter).squeeze(0).numpy()
+
     np.nan_to_num(final_output, copy=False)
 
     if test_data.shape[1] > 2 * border and border > 0:
         final_output = final_output[..., border:-border]
 
     save_audio(output_wav, final_output, samplerate)
+
     print(f"Guardado: {output_wav}")
 
 # =========================================================
@@ -114,6 +134,7 @@ def main(input_wav, output_wav):
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 config = get_config(CONFIG_PATH)
+
 chunk_size = 10
 overlap = 2
 
@@ -128,47 +149,88 @@ model = look2hear.models.BaseModel.from_pretrain(
 model.eval()
 
 # =========================================================
-# PROCESAMIENTO POR SUBCARPETAS
+# EXTENSIONES DE AUDIO
 # =========================================================
-audio_exts = (".wav", ".mp3", ".flac", ".aiff", ".m4a")
+audio_exts = (
+    ".wav",
+    ".mp3",
+    ".flac",
+    ".aiff",
+    ".m4a"
+)
 
-subfolders = [
+# =========================================================
+# PROCESAR ARCHIVOS SUELTOS EN APOLLO
+# =========================================================
+root_files = sorted(
     f for f in os.listdir(INPUT_DIR)
-    if os.path.isdir(os.path.join(INPUT_DIR, f)) and f != "Editado IA"
-]
+    if os.path.isfile(os.path.join(INPUT_DIR, f))
+    and f.lower().endswith(audio_exts)
+    and not os.path.splitext(f)[0].endswith("_IA")
+)
 
-print(f"Carpetas encontradas: {len(subfolders)}")
+for fname in root_files:
+
+    in_path = os.path.join(INPUT_DIR, fname)
+
+    out_name = os.path.splitext(fname)[0] + "_IA.wav"
+    out_path = os.path.join(INPUT_DIR, out_name)
+
+    if os.path.exists(out_path):
+        continue
+
+    print(f"Procesando: {fname}")
+
+    try:
+        main(in_path, out_path)
+
+    except Exception as e:
+        print(f"ERROR: {fname}")
+        print(e)
+
+# =========================================================
+# PROCESAR SUBCARPETAS
+# =========================================================
+subfolders = sorted(
+    f for f in os.listdir(INPUT_DIR)
+    if os.path.isdir(os.path.join(INPUT_DIR, f))
+    and not f.endswith("_IA")
+)
 
 for folder in subfolders:
 
     input_folder = os.path.join(INPUT_DIR, folder)
-    output_folder = os.path.join(EDITED_ROOT, f"{folder}_IA")
-
-    os.makedirs(output_folder, exist_ok=True)
 
     files = sorted(
         f for f in os.listdir(input_folder)
-        if f.lower().endswith(audio_exts)
+        if os.path.isfile(os.path.join(input_folder, f))
+        and f.lower().endswith(audio_exts)
+        and not os.path.splitext(f)[0].endswith("_IA")
     )
 
-    print(f"\nProcesando carpeta: {folder} ({len(files)} archivos)")
-
-    for idx, fname in enumerate(files, 1):
+    for fname in files:
 
         in_path = os.path.join(input_folder, fname)
-        out_name = os.path.splitext(fname)[0] + ".wav"
-        out_path = os.path.join(output_folder, out_name)
+
+        out_name = os.path.splitext(fname)[0] + "_IA.wav"
+        out_path = os.path.join(input_folder, out_name)
 
         if os.path.exists(out_path):
-            print(f"[{idx}/{len(files)}] {fname} — ya procesado")
             continue
 
-        print(f"[{idx}/{len(files)}] Procesando {fname}")
-        main(in_path, out_path)
+        print(f"Procesando: {folder}/{fname}")
+
+        try:
+            main(in_path, out_path)
+
+        except Exception as e:
+            print(f"ERROR: {folder}/{fname}")
+            print(e)
 
 # =========================================================
 # LIMPIEZA
 # =========================================================
 model.cpu()
 torch.cuda.empty_cache()
+
 print("\nTODO TERMINADO")
