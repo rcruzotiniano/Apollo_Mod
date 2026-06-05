@@ -201,6 +201,13 @@ for folder in subfolders:
 
     input_folder = os.path.join(INPUT_DIR, folder)
 
+    output_folder = os.path.join(
+        INPUT_DIR,
+        folder + "_IA"
+    )
+
+    os.makedirs(output_folder, exist_ok=True)
+
     files = sorted(
         f for f in os.listdir(input_folder)
         if os.path.isfile(os.path.join(input_folder, f))
@@ -213,7 +220,7 @@ for folder in subfolders:
         in_path = os.path.join(input_folder, fname)
 
         out_name = os.path.splitext(fname)[0] + "_IA.wav"
-        out_path = os.path.join(input_folder, out_name)
+        out_path = os.path.join(output_folder, out_name)
 
         if os.path.exists(out_path):
             continue
