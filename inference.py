@@ -92,17 +92,23 @@ OVERLAP = 2
 # UTILIDADES COMPARTIDAS
 # =========================================================
 def resolve_project_path(path_like):
-    """Devuelve una ruta existente del proyecto.
+    """Devuelve la ruta de un recurso del proyecto (checkpoint o config).
 
-    Acepta rutas absolutas y, si la ruta relativa no existe desde el directorio
-    actual, la resuelve contra la carpeta del script: asi funciona igual en
-    Colab (que hace %cd al repo) que desde otra carpeta.
+    Las rutas de MODEL_CONFIGS son relativas a la carpeta del script, asi que se
+    resuelven siempre contra PROJECT_DIR primero. Solo si ahi no existe se
+    prueba la ruta tal cual la paso el usuario (por ejemplo un --ckpt relativo).
+
+    El orden importa: si se probara primero el directorio actual, un archivo
+    homonimo en otra carpeta se tomaria como valido y un checkpoint faltante
+    pasaria desapercibido.
     """
-    path = Path(path_like)
-    if path.is_file():
+    path = Path(path_like).expanduser()
+    if path.is_absolute():
         return path
-    candidate = PROJECT_DIR / path
-    return candidate if candidate.is_file() else path
+    del_proyecto = PROJECT_DIR / path
+    if del_proyecto.is_file():
+        return del_proyecto
+    return path if path.is_file() else del_proyecto
 
 
 def normalize_suffix(suffix):
