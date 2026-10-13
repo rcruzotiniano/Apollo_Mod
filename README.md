@@ -2,27 +2,42 @@
 
 Herramienta para **restaurar audio comprimido** (MP3 de baja tasa, voces con
 artefactos de códec). Usa los modelos **Apollo** de *Kai Li y Yi Luo*
-(Tsinghua University + Tencent AI Lab, ICASSP 2025) con tres formas de
-ejecutarlo: cuaderno de Colab, menú de consola e interfaz web local.
+(Tsinghua University + Tencent AI Lab, ICASSP 2025) con modelos afinados propios
+y filtro de cutoff configurable.
 
-> Este repositorio es un fork de trabajo de [JusperLee/Apollo](https://github.com/JusperLee/Apollo)
-> con modelos afinados propios, filtro de cutoff configurable y utilidades para
-> Windows. El proyecto original se documenta en
+Se usa desde **Google Colab**, donde hay GPU gratis. El repositorio aporta el
+motor de inferencia, los pesos y el cuaderno que lo maneja.
+
+> Este repositorio es un fork de trabajo de [JusperLee/Apollo](https://github.com/JusperLee/Apollo).
+> El proyecto original se documenta en
 > [arXiv:2409.08514](https://arxiv.org/abs/2409.08514).
 
 ---
 
 ## Requisitos
 
-- Windows 10/11 de 64 bits (probado con Python 3.14).
-- GPU NVIDIA con CUDA para uso real. **Sin GPU funciona en CPU, pero es muy
-  lento**: procesar 3-4 minutos de audio puede tardar horas en lugar de
-  minutos. La app avisa cuando detecta que no hay GPU.
-- Los pesos de los modelos (unos 314 MB) se bajan con **Git LFS**.
+- Una cuenta de Google y acceso a Colab con GPU (**T4**).
+- Nada que instalar en tu equipo: Colab trae Python, torch con CUDA y las
+  librerías de audio. El cuaderno clona el repo y baja los pesos solo.
+- Los pesos de los modelos (unos 314 MB) vienen por **Git LFS**; el cuaderno lo
+  resuelve automáticamente.
+
+Opcional, para probar cambios sin gastar una sesión de Colab, se puede correr en
+Windows con el venv del proyecto (ver más abajo). Sin GPU funciona, pero es muy
+lento.
 
 ---
 
 ## Instalación
+
+### En Colab
+
+No hay que instalar nada a mano: el cuaderno
+`Apollo_Audio_Restoration_Richard.ipynb` clona el repo, hace `git lfs pull` y
+monta tu Google Drive. Solo elegí **Entorno de ejecución → Cambiar tipo de
+entorno → T4 GPU** y ejecutá las celdas.
+
+### En Windows (opcional, para pruebas)
 
 ```powershell
 git clone https://github.com/rcruzotiniano/Apollo_Mod.git
@@ -67,38 +82,27 @@ Listalos desde la consola con:
 
 ## Uso
 
-### 1. Colab (recomendado: GPU gratis)
+### En Colab (el flujo normal)
 
 Abrí `Apollo_Audio_Restoration_Richard.ipynb` en Colab, activá la GPU
 (**Entorno de ejecución → Cambiar tipo de entorno → T4 GPU**) y ejecutá las
-celdas. En la última elegís modelo, cutoff y carpetas.
+celdas. La primera clona el repo y baja los pesos por Git LFS; la última te
+deja elegir **modelo, cutoff, carpeta de entrada y carpeta de salida**, y lanza
+la inferencia.
 
-### 2. Menú de consola (Windows)
+### Desde la línea de comandos
 
-```powershell
-apollo.bat
-```
-
-Pregunta modelo, carpeta, cutoff y carpeta de salida. También acepta todo por
-argumentos, sin preguntar:
-
-```powershell
-.\venv\Scripts\python.exe app.py --input_dir "D:\Musica\Apollo" --model universal --cutoff 16000 --yes
-```
-
-### 3. Interfaz web local
-
-```powershell
-.\venv\Scripts\python.exe web_app.py --open
-```
-
-Queda en `http://127.0.0.1:5000`. El procesamiento corre en segundo plano y el
-detalle se ve en el panel **Registro** de la propia página y en `logs\`.
-
-### 4. Línea de comandos directa
+Sirve para probar cambios sin gastar una sesión de Colab:
 
 ```powershell
 .\venv\Scripts\python.exe inference.py --input_dir "D:\Musica\Apollo" --model normal --cutoff 16000
+```
+
+Sin GPU esto funciona, pero es muy lento. Antes de lanzar un trabajo largo podés
+verificar la configuración sin procesar nada:
+
+```powershell
+.\venv\Scripts\python.exe inference.py --input_dir "D:\Musica" --model normal --cutoff 16500 --check
 ```
 
 ---
@@ -115,13 +119,6 @@ castigados.
 - **`0` (o vacío) = sin cutoff**: el audio entra tal cual.
 - El valor debe quedar **por debajo de Nyquist** (22050 Hz). El programa rechaza
   el resto con un mensaje claro en lugar de fallar a mitad del proceso.
-
-Antes de lanzar un trabajo largo, podés verificar que todo esté en orden sin
-procesar nada:
-
-```powershell
-.\venv\Scripts\python.exe inference.py --input_dir "D:\Musica" --model normal --cutoff 16500 --check
-```
 
 ---
 
@@ -154,30 +151,26 @@ Reglas de procesamiento:
 ## Estructura del proyecto
 
 ```
-inference.py    Motor único de inferencia (CLI). Lo usan los tres accesos.
+inference.py    Motor de inferencia (CLI). Es todo lo que corre Colab.
 audio_filter.py Filtro de cutoff y su validación.
-app.py          Menú de consola.
-web_app.py      Interfaz web local (Flask) + templates/index.html.
-apollo.bat      Lanzador del menú de consola.
-look2hear/      Arquitectura Apollo (modelo, STFT, sistema de entrenamiento).
+look2hear/      Arquitectura Apollo (modelo, STFT y utilidades).
 configs/        Configuración por modelo (sr, win, feature_dim, layer).
 model/          Pesos en Git LFS.
-asserts/        Material de la demo (imágenes, audio de ejemplo).
-train.py        Entrenamiento (requiere el dataset MUSDB18-HQ + MoisesDB).
+asserts/        Muestras de audio e imágenes de la demo del paper.
+train.py        Entrenamiento (código del proyecto original, no se usa acá).
 ```
 
 ---
 
 ## Limitaciones conocidas
 
-- **CPU es muy lento.** Para uso práctico hace falta GPU.
+- **CPU es muy lento.** Para uso práctico hace falta GPU; en Colab elegí la T4.
 - El procesamiento es **por ventanas solapadas** (`chunk_size` de 10 s con 50%
   de solapamiento, definido en `inference.py`), así que la memoria se mantiene
   acotada, pero la velocidad depende por completo de la GPU.
-- `train.py` necesita el dataset preprocesado en HDF5 y no está adaptado a este
-  fork; está incluido como referencia del proyecto original.
-- Los cuadernos y utilidades asumen **44100 Hz**, la frecuencia de todos los
-  modelos Apollo.
+- La frecuencia de muestreo es **44100 Hz** en todos los modelos Apollo.
+- `train.py` y los módulos de entrenamiento de `look2hear/` son código del
+  proyecto original, incluidos como referencia; no están adaptados a este fork.
 
 ---
 

@@ -1,11 +1,9 @@
 """Inferencia de Apollo: restauracion de audio comprimido.
 
-Script unico de inferencia, pensado para tres usos:
+Script unico de inferencia. Pensado para el cuaderno de Colab
+(Apollo_Audio_Restoration_Richard.ipynb) y para la linea de comandos:
 
-* Colab / linea de comandos:
     python inference.py --input_dir "..." --model normal --cutoff 16000
-* Menu de consola: app.py (reutiliza MODEL_CONFIGS y build_command de aca)
-* Interfaz web local: web_app.py (idem)
 
 El cutoff es editable: cualquier valor de 1000 a 24000 Hz que quede por debajo
 de Nyquist. 0 (o desactivado) conserva el audio de entrada sin filtrar.
@@ -113,45 +111,6 @@ def normalize_suffix(suffix):
     if suffix and not suffix.startswith("_"):
         suffix = "_" + suffix
     return suffix
-
-
-def suffix_for_model(model):
-    """Sufijo de salida por defecto del modelo elegido."""
-    return MODEL_CONFIGS[model][3]
-
-
-def build_command(input_dir, model, cutoff=0, output_dir=None, suffix=None,
-                  ckpt=None, config=None):
-    """Arma el comando del motor de inferencia.
-
-    Lo usan app.py y web_app.py para no duplicar rutas ni nombres de modelo.
-    """
-    if model not in MODEL_CONFIGS:
-        raise ValueError(f"Modelo desconocido: {model}")
-
-    python_exe = Path(sys.executable)
-    # Cuando app.py/web_app.py corren desde su propio venv, sys.executable ya es
-    # el correcto; si no, se prefiere el venv del proyecto si existe.
-    venv_python = PROJECT_DIR / "venv" / "Scripts" / "python.exe"
-    if venv_python.is_file() and "venv" not in str(python_exe).lower():
-        python_exe = venv_python
-
-    command = [
-        str(python_exe),
-        str(PROJECT_DIR / "inference.py"),
-        "--input_dir", str(input_dir),
-        "--model", model,
-        "--cutoff", str(int(cutoff or 0)),
-    ]
-    if output_dir:
-        command += ["--output_dir", str(output_dir)]
-    if suffix:
-        command += ["--suffix", normalize_suffix(str(suffix))]
-    if ckpt:
-        command += ["--ckpt", str(ckpt)]
-    if config:
-        command += ["--config", str(config)]
-    return command
 
 
 def is_ignored_stem(stem):

@@ -1,11 +1,16 @@
-# Dependencias de Apollo (restauracion de audio).
+# Dependencias de Apollo (restauracion de audio) para inferencia.
 #
-# Instalacion:
-#   python -m venv venv
-#   venv\Scripts\python.exe -m pip install -r requirements.txt
+# En Colab alcanza con instalar lo que no venga de fabrica:
+#   pip install ml_collections
+#   pip install -r requirements.txt
 #
-# Para GPU con CUDA, instala torch desde el indice oficial antes de esto:
-#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+# La lista es el entorno completo que usa inference.py. NO incluye las
+# dependencias del proyecto original que solo servian para entrenar
+# (hydra, pytorch_lightning, wandb, omegaconf), porque no hacen falta para
+# restaurar audio.
+#
+# Colab ya trae torch con CUDA. Si instalas desde cero sin GPU, torch cae a
+# la version de CPU y el proceso se vuelve impracticablemente lento.
 #
 # Los pesos de los modelos NO estan en este archivo: van en Git LFS
 # (model/*.ckpt y model/*.bin). Usa "git lfs pull" para bajarlos.
@@ -16,7 +21,6 @@ antlr4-python3-runtime==4.9.3
 anyio==4.13.0
 audioop-lts==0.2.2
 audioread==3.1.0
-blinker==1.9.0
 certifi==2026.2.25
 cffi==2.0.0
 charset-normalizer==3.4.7
@@ -24,7 +28,6 @@ click==8.3.1
 colorama==0.4.6
 decorator==5.2.1
 filelock==3.25.2
-Flask==3.1.3
 fsspec==2026.3.0
 h11==0.16.0
 hf-xet==1.4.3
@@ -32,7 +35,6 @@ httpcore==1.0.9
 httpx==0.28.1
 huggingface_hub==1.8.0
 idna==3.11
-itsdangerous==2.2.0
 Jinja2==3.1.6
 joblib==1.5.3
 lazy-loader==0.5
@@ -72,4 +74,3 @@ tqdm==4.67.3
 typer==0.24.1
 typing_extensions==4.15.0
 urllib3==2.6.3
-Werkzeug==3.1.8
