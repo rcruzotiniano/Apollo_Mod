@@ -7,7 +7,7 @@ echo =========================
 echo        APOLLO IA
 echo =========================
 echo.
-echo 1 - Ejecutar proceso
+echo 1 - Ejecutar proceso (menu interactivo)
 echo 2 - Salir
 echo.
 set /p option=Selecciona una opcion: 
@@ -19,7 +19,7 @@ goto menu
 
 :run
 cls
-echo Ejecutando...
+echo Ejecutando Apollo...
 echo.
 
 venv\Scripts\python.exe app.py

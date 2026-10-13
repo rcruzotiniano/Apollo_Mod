@@ -1,48 +1,203 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <title>Apollo Web</title>
-</head>
-<body>
-    <h2>Apollo Enhancer</h2>
+<html lang="es">
 
-    <label>Modelo:</label>
+<head>
+    <meta charset="utf-8">
+    <title>Apollo Enhancer</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 0 16px;
+            color: #1f2430;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .sub {
+            color: #5b6472;
+            margin-top: 0;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            margin-top: 18px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            margin-top: 6px;
+            border: 1px solid #c7ccd6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .row>div {
+            flex: 1;
+        }
+
+        small {
+            color: #5b6472;
+            font-weight: 400;
+        }
+
+        button {
+            margin-top: 22px;
+            padding: 10px 20px;
+            border: 0;
+            border-radius: 6px;
+            background: #1367a7;
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #9aa4b2;
+            cursor: default;
+        }
+
+        #status {
+            margin-top: 18px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            background: #eef2f7;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        #status.error {
+            background: #fdecec;
+            color: #8a1c1c;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin-top: 28px;
+        }
+
+        pre {
+            background: #12161c;
+            color: #d8e0ea;
+            padding: 12px;
+            border-radius: 6px;
+            max-height: 320px;
+            overflow: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Apollo Enhancer</h1>
+    <p class="sub">Restauracion de audio comprimido. El procesamiento corre en
+        segundo plano y el detalle queda en el registro de abajo.</p>
+
+    <label for="model">Modelo</label>
     <select id="model">
-        {% for m in models %}
-        <option value="{{m}}">{{m}}</option>
+        {% for key, info in models.items() %}
+        <option value="{{ key }}">{{ info.label }} ({{ info.suffix }})</option>
         {% endfor %}
     </select>
 
-    <br><br>
+    <label for="path">Carpeta a procesar <small>(se recorre con subcarpetas)</small></label>
+    <input type="text" id="path" placeholder="D:\Musica\Apollo">
 
-    <label>Ruta carpeta:</label>
-    <input type="text" id="path" placeholder="C:\Musica">
+    <label for="out">Carpeta de salida <small>(vacio = junto a los originales)</small></label>
+    <input type="text" id="out" placeholder="D:\Musica\Apollo restaurado">
 
-    <br><br>
+    <label for="cutoff">Cutoff en Hz <small>(1000 a 24000; 0 o vacio = sin
+            cutoff)</small></label>
+    <input type="number" id="cutoff" value="{{ default_cutoff }}" min="0" max="24000" step="1">
 
-    <button onclick="run()">Procesar</button>
+    <button id="run" onclick="run()">Procesar</button>
 
-    <p id="status"></p>
+    <p id="status">Listo.</p>
 
-<script>
-function run() {
-    const model = document.getElementById("model").value;
-    const path = document.getElementById("path").value;
+    <h2>Registro</h2>
+    <pre id="log">Todavia no hay ningun trabajo lanzado.</pre>
 
-    fetch("/process", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            model: model,
-            input_dir: path
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        document.getElementById("status").innerText = data.status || data.error;
-    });
-}
-</script>
+    <script>
+        let poller = null;
+
+        function setStatus(text, isError) {
+            const box = document.getElementById("status");
+            box.innerText = text;
+            box.className = isError ? "error" : "";
+        }
+
+        async function refreshLog() {
+            try {
+                const res = await fetch("/log");
+                const data = await res.json();
+                document.getElementById("log").innerText = data.log || "(sin salida todavia)";
+                if (data.running) {
+                    setStatus(data.status);
+                } else {
+                    setStatus(data.status);
+                    if (poller) { clearInterval(poller); poller = null; }
+                    document.getElementById("run").disabled = false;
+                }
+            } catch (err) {
+                /* el servidor puede estar ocupado; se reintenta en el proximo ciclo */
+            }
+        }
+
+        async function run() {
+            const model = document.getElementById("model").value;
+            const path = document.getElementById("path").value;
+            const out = document.getElementById("out").value;
+            const cutoff = document.getElementById("cutoff").value;
+
+            document.getElementById("run").disabled = true;
+            setStatus("Enviando el trabajo...", false);
+
+            try {
+                const res = await fetch("/process", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: model,
+                        input_dir: path,
+                        output_dir: out,
+                        cutoff: cutoff
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    setStatus(data.error || "No se pudo iniciar el proceso.", true);
+                    document.getElementById("run").disabled = false;
+                    return;
+                }
+                setStatus(data.status + "\nRegistro: " + data.log, false);
+                document.getElementById("log").innerText = "Arrancando el motor...";
+                if (poller) { clearInterval(poller); }
+                poller = setInterval(refreshLog, 3000);
+                refreshLog();
+            } catch (err) {
+                setStatus("Error de conexion con Apollo: " + err, true);
+                document.getElementById("run").disabled = false;
+            }
+        }
+    </script>
 
 </body>
+
 </html>

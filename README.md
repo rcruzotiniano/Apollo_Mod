@@ -1,109 +1,192 @@
-<p align="center">
-  <img src="asserts/apollo-logo.png" alt="Logo" width="150"/>
-</p>
+# Apollo Mod
 
-<p align="center">
-  <strong>Kai Li<sup>1,2</sup>, Yi Luo<sup>2</sup></strong><br>
-    <strong><sup>1</sup>Tsinghua University, Beijing, China</strong><br>
-    <strong><sup>2</sup>Tencent AI Lab, Shenzhen, China</strong><br>
-  <a href="https://arxiv.org/abs/2409.08514">ArXiv</a> | <a href="https://cslikai.cn/Apollo_Mod/">Demo</a>
+Herramienta para **restaurar audio comprimido** (MP3 de baja tasa, voces con
+artefactos de códec). Usa los modelos **Apollo** de *Kai Li y Yi Luo*
+(Tsinghua University + Tencent AI Lab, ICASSP 2025) con tres formas de
+ejecutarlo: cuaderno de Colab, menú de consola e interfaz web local.
 
-<p align="center">
-  <img src="https://visitor-badge.laobi.icu/badge?page_id=JusperLee.Apollo" alt="访客统计" />
-  <img src="https://img.shields.io/github/stars/JusperLee/Apollo?style=social" alt="GitHub stars" />
-  <img alt="Static Badge" src="https://img.shields.io/badge/license-CC%20BY--SA%204.0-lightgrey">
-</p>
+> Este repositorio es un fork de trabajo de [JusperLee/Apollo](https://github.com/JusperLee/Apollo)
+> con modelos afinados propios, filtro de cutoff configurable y utilidades para
+> Windows. El proyecto original se documenta en
+> [arXiv:2409.08514](https://arxiv.org/abs/2409.08514).
 
-<p align="center">
+---
 
-# Apollo: Band-sequence Modeling for High-Quality Audio Restoration
+## Requisitos
 
-## 📖 Abstract
+- Windows 10/11 de 64 bits (probado con Python 3.14).
+- GPU NVIDIA con CUDA para uso real. **Sin GPU funciona en CPU, pero es muy
+  lento**: procesar 3-4 minutos de audio puede tardar horas en lugar de
+  minutos. La app avisa cuando detecta que no hay GPU.
+- Los pesos de los modelos (unos 314 MB) se bajan con **Git LFS**.
 
-Audio restoration has become increasingly significant in modern society, not only due to the demand for high-quality auditory experiences enabled by advanced playback devices, but also because the growing capabilities of generative audio models necessitate high-fidelity audio. Typically, audio restoration is defined as a task of predicting undistorted audio from damaged input, often trained using a GAN framework to balance perception and distortion. Since audio degradation is primarily concentrated in mid- and high-frequency ranges, especially due to codecs, a key challenge lies in designing a generator capable of preserving low-frequency information while accurately reconstructing high-quality mid- and high-frequency content. Inspired by recent advancements in high-sample-rate music separation, speech enhancement, and audio codec models, we propose Apollo, a generative model designed for high-sample-rate audio restoration. Apollo employs an explicit **frequency band split module** to model the relationships between different frequency bands, allowing for **more coherent and higher-quality** restored audio. Evaluated on the MUSDB18-HQ and MoisesDB datasets, Apollo consistently outperforms existing SR-GAN models across various bit rates and music genres, particularly excelling in complex scenarios involving mixtures of multiple instruments and vocals. Apollo significantly improves music restoration quality while maintaining computational efficiency.
+---
 
-## 🔥 News
+## Instalación
 
-- [2025.03.07] We released the training data preprocessing code on [Apollo-data-preprocess](https://github.com/JusperLee/Apollo-data-preprocess).
-- [2024.09.10] Apollo is now available on [ArXiv](#) and [Demo](https://cslikai.cn/Apollo_Mod/).
-- [2024.09.10] Apollo checkpoints and pre-trained models are available for download.
+```powershell
+git clone https://github.com/rcruzotiniano/Apollo_Mod.git
+cd Apollo_Mod
+git lfs pull          # baja los pesos de model/ (obligatorio)
 
-## ⚡️ Installation
-
-clone the repository
-
-```bash
-git clone https://github.com/JusperLee/Apollo.git && cd Apollo
-conda create --name look2hear --file look2hear.yml
-conda activate look2hear
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## 🖥️ Usage
+El `torch` que instala `requirements.txt` es la version de CPU. Para usar la
+GPU, instalá primero la version CUDA:
 
-### 🗂️ Datasets
-
-Apollo is trained on the MUSDB18-HQ and MoisesDB datasets. To download the datasets, run the following commands:
-
-```bash
-wget https://zenodo.org/records/3338373/files/musdb18hq.zip?download=1
-wget https://ds-website-downloads.55c2710389d9da776875002a7d018e59.r2.cloudflarestorage.com/moisesdb.zip
-```
-During data preprocessing, we drew inspiration from music separation techniques and implemented the following steps:
-
-1. **Source Activity Detection (SAD):**  
-   We used a Source Activity Detector (SAD) to remove silent regions from the audio tracks, retaining only the significant portions for training.
-
-2. **Data Augmentation:**  
-   We performed real-time data augmentation by mixing tracks from different songs. For each mix, we randomly selected between 1 and 8 stems from the 11 available tracks, extracting 3-second clips from each selected stem. These clips were scaled in energy by a random factor within the range of [-10, 10] dB relative to their original levels. The selected clips were then summed together to create simulated mixed music.
-
-3. **Simulating Dynamic Bitrate Compression:**  
-   We simulated various bitrate scenarios by applying MP3 codecs with bitrates of [24000, 32000, 48000, 64000, 96000, 128000]. 
-
-4. **Rescaling:**  
-   To ensure consistency across all samples, we rescaled both the target and the encoded audio based on their maximum absolute values.
-
-5. **Saving as HDF5:**  
-   After preprocessing, all data (including the source stems, mixed tracks, and compressed audio) was saved in HDF5 format, making it easy to load for training and evaluation purposes.
-
-### 🚀 Training
-To train the Apollo model, run the following command:
-
-```bash
-python train.py --conf_dir=configs/apollo.yml
+```powershell
+.\venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
-### 🎨 Evaluation
-To evaluate the Apollo model, run the following command:
+Verificá que la GPU se vea:
 
-```bash
-python inference.py --in_wav=assets/input.wav --out_wav=assets/output.wav
+```powershell
+.\venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
 ```
 
-## 📊 Results
+---
 
-*Here, you can include a brief overview of the performance metrics or results that Apollo achieves using different bitrates*
+## Modelos disponibles
 
-![](./asserts/bitrates.png)
+| `--model` | Nombre | Checkpoint | Config | Sufijo |
+|---|---|---|---|---|
+| `normal` | Normal (MP3 enhancer) | `model/pytorch_model.bin` | `configs/apollo.yaml` | `_N` |
+| `vocal` | Lew Vocal Enhancer | `model/apollo_model.ckpt` | `configs/apollo.yaml` | `_V` |
+| `vocal_v2` | Lew Vocal Enhancer v2 | `model/apollo_model_v2.ckpt` | `configs/config_apollo_vocal.yaml` | `_V2` |
+| `universal` | Universal | `model/apollo_model_uni.ckpt` | `configs/config_apollo_uni.yaml` | `_U` |
 
+Listalos desde la consola con:
 
-*Different methods' SDR/SI-SNR/VISQOL scores for various types of music, as well as the number of model parameters and GPU inference time. For the GPU inference time test, a music signal with a sampling rate of 44.1 kHz and a length of 1 second was used.*
-![](./asserts/types.png)
+```powershell
+.\venv\Scripts\python.exe inference.py --list-models
+```
 
-## License
+---
 
-<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+## Uso
 
-## Third Party
+### 1. Colab (recomendado: GPU gratis)
 
-[Apollo-Colab-Inference](https://github.com/jarredou/Apollo-Colab-Inference)
+Abrí `Apollo_Audio_Restoration_Richard.ipynb` en Colab, activá la GPU
+(**Entorno de ejecución → Cambiar tipo de entorno → T4 GPU**) y ejecutá las
+celdas. En la última elegís modelo, cutoff y carpetas.
 
-## Acknowledgements
+### 2. Menú de consola (Windows)
 
-Apollo is developed by the **Look2Hear** at Tsinghua University.
+```powershell
+apollo.bat
+```
 
-## Citation
+Pregunta modelo, carpeta, cutoff y carpeta de salida. También acepta todo por
+argumentos, sin preguntar:
 
-If you use Apollo in your research or project, please cite the following paper:
+```powershell
+.\venv\Scripts\python.exe app.py --input_dir "D:\Musica\Apollo" --model universal --cutoff 16000 --yes
+```
+
+### 3. Interfaz web local
+
+```powershell
+.\venv\Scripts\python.exe web_app.py --open
+```
+
+Queda en `http://127.0.0.1:5000`. El procesamiento corre en segundo plano y el
+detalle se ve en el panel **Registro** de la propia página y en `logs\`.
+
+### 4. Línea de comandos directa
+
+```powershell
+.\venv\Scripts\python.exe inference.py --input_dir "D:\Musica\Apollo" --model normal --cutoff 16000
+```
+
+---
+
+## El cutoff
+
+El cutoff es un **filtro pasabajos de fase cero** (Butterworth orden 8) que se
+aplica al audio **antes** de pasarlo por el modelo. Sirve para recortar el ruido
+de alta frecuencia que deja el códec y suele mejorar el resultado en MP3
+castigados.
+
+- **Es editable**: cualquier valor de **1000 a 24000 Hz**, no solo múltiplos de
+  1000. Valores típicos útiles: `11025`, `16000`, `16500`.
+- **`0` (o vacío) = sin cutoff**: el audio entra tal cual.
+- El valor debe quedar **por debajo de Nyquist** (22050 Hz). El programa rechaza
+  el resto con un mensaje claro en lugar de fallar a mitad del proceso.
+
+Antes de lanzar un trabajo largo, podés verificar que todo esté en orden sin
+procesar nada:
+
+```powershell
+.\venv\Scripts\python.exe inference.py --input_dir "D:\Musica" --model normal --cutoff 16500 --check
+```
+
+---
+
+## Cómo se nombran las salidas
+
+Cada modelo deja su propio sufijo, así **cambiar de modelo no reutiliza las
+salidas del otro**:
+
+```
+cancion.mp3            ->  cancion_N.wav    (modelo normal)
+                       ->  cancion_V.wav    (modelo vocal)
+                       ->  cancion_V2.wav   (modelo vocal_v2)
+                       ->  cancion_U.wav    (modelo universal)
+```
+
+Reglas de procesamiento:
+
+- Las **subcarpetas se recorren** y la estructura se conserva.
+- Un audio que ya tiene su WAV del modelo elegido **no se reprocesa** (salvo que
+  el archivo esté vacío).
+- Los archivos que ya son salidas de Apollo (`_N`, `_V`, `_V2`, `_U`, `_IA`) y
+  las carpetas `*_IA` **se ignoran como entrada**, así que podés reprocesar una
+  carpeta sin miedo a encadenar salidas sobre salidas.
+- Formatos de entrada: `.wav`, `.mp3`, `.flac`, `.aiff`, `.m4a`.
+- Con `--output_dir` los resultados van a otra carpeta; sin él, quedan junto a
+  los originales.
+
+---
+
+## Estructura del proyecto
+
+```
+inference.py    Motor único de inferencia (CLI). Lo usan los tres accesos.
+audio_filter.py Filtro de cutoff y su validación.
+app.py          Menú de consola.
+web_app.py      Interfaz web local (Flask) + templates/index.html.
+apollo.bat      Lanzador del menú de consola.
+look2hear/      Arquitectura Apollo (modelo, STFT, sistema de entrenamiento).
+configs/        Configuración por modelo (sr, win, feature_dim, layer).
+model/          Pesos en Git LFS.
+asserts/        Material de la demo (imágenes, audio de ejemplo).
+train.py        Entrenamiento (requiere el dataset MUSDB18-HQ + MoisesDB).
+```
+
+---
+
+## Limitaciones conocidas
+
+- **CPU es muy lento.** Para uso práctico hace falta GPU.
+- El procesamiento es **por ventanas solapadas** (`chunk_size` de 10 s con 50%
+  de solapamiento, definido en `inference.py`), así que la memoria se mantiene
+  acotada, pero la velocidad depende por completo de la GPU.
+- `train.py` necesita el dataset preprocesado en HDF5 y no está adaptado a este
+  fork; está incluido como referencia del proyecto original.
+- Los cuadernos y utilidades asumen **44100 Hz**, la frecuencia de todos los
+  modelos Apollo.
+
+---
+
+## Créditos y licencia
+
+- Modelo Apollo: **Kai Li, Yi Luo** — *Apollo: Band-sequence Modeling for
+  High-Quality Music Restoration in Compressed Audio* (ICASSP 2025).
+- Licencia: **CC BY-SA 4.0** (ver [LICENSE](LICENSE)). Los pesos de los modelos
+  heredan la licencia del proyecto original.
 
 ```bibtex
 @inproceedings{li2025apollo,
@@ -114,7 +197,3 @@ If you use Apollo in your research or project, please cite the following paper:
   organization={IEEE}
 }
 ```
-
-## Contact
-
-For any questions or feedback regarding Apollo, feel free to reach out to us via email: `tsinghua.kaili@gmail.com`
