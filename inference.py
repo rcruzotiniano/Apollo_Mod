@@ -68,19 +68,20 @@ MODEL_CONFIGS = {
         "_U",
     ),
 }
-# Salidas del Apollo viejo (local). No son entradas nuevas ni carpetas que haya
-# que recorrer: si se ignoraran solo por archivo, el procesador entraria en las
-# carpetas "_IA" y reprocesaria las salidas.
-LEGACY_SUFFIXES = ("_IA",)
+# Sufijo de las carpetas de salida: los audios de "cancion/" se guardan en
+# "cancion_IA/", como en el script original. Se conserva aunque la salida de los
+# archivos sueltos lleve el sufijo del modelo (para saber con cual se proceso).
+CARPETA_SALIDA_SUFIJO = "_IA"
 # Sufijos que marcan un archivo como salida de Apollo (de cualquier modelo).
 IGNORED_STEM_SUFFIXES = (
-    *(s.lower() for s in LEGACY_SUFFIXES),
+    CARPETA_SALIDA_SUFIJO.lower(),
     *(config[3].lower() for config in MODEL_CONFIGS.values()),
 )
+# Sufijos que marcan una CARPETA como salida de Apollo: no se recorren.
+IGNORED_DIR_SUFFIXES = (CARPETA_SALIDA_SUFIJO.lower(),)
 AUDIO_EXTS = (".wav", ".mp3", ".flac", ".aiff", ".m4a")
 PROJECT_DIR = Path(__file__).resolve().parent
-# Frecuencia de muestreo de todos los modelos Apollo. La usan las interfaces
-# para validar el cutoff antes de cargar el checkpoint.
+# Frecuencia de muestreo de todos los modelos Apollo.
 ASSUMED_SAMPLE_RATE = 44100
 
 # Parametros de segmentacion (compartidos por el CLI y las interfaces).
@@ -125,24 +126,64 @@ def is_ignored_stem(stem):
 
 
 def is_ignored_dir(name):
-    """True si la carpeta es una salida vieja de Apollo (por ejemplo "x_IA")."""
-    return name.lower().endswith(tuple(s.lower() for s in LEGACY_SUFFIXES))
+    """True si la carpeta es una salida de Apollo (por ejemplo "cancion_IA")."""
+    return name.lower().endswith(IGNORED_DIR_SUFFIXES)
 
 
-def find_audio_files(input_dir):
-    """Audios a procesar, recursivo, salteando salidas propias y carpetas viejas."""
-    input_dir = Path(input_dir)
+def list_audio_files(folder):
+    """Audios de UNA carpeta, salteando los que ya son salidas de Apollo.
+
+    Es el equivalente del os.listdir() del script original: no baja a otras
+    subcarpetas, esa decision la toma el llamador.
+    """
     return sorted(
         path
-        for path in input_dir.rglob("*")
+        for path in Path(folder).iterdir()
         if path.is_file()
         and path.suffix.lower() in AUDIO_EXTS
         and not is_ignored_stem(path.stem)
-        and not any(
-            is_ignored_dir(part)
-            for part in path.relative_to(input_dir).parts[:-1]
-        )
     )
+
+
+def list_subfolders(input_dir):
+    """Subcarpetas a procesar, salteando las que son salidas de Apollo."""
+    return sorted(
+        path
+        for path in Path(input_dir).iterdir()
+        if path.is_dir() and not is_ignored_dir(path.name)
+    )
+
+
+def output_path_for(input_path, input_dir, output_dir, output_suffix):
+    """Ruta del WAV de salida, con la misma estructura que el script original.
+
+    Archivo suelto en la raiz -> junto al original:      tema.wav -> tema_N.wav
+    Archivo dentro de una subcarpeta -> carpeta aparte:  cancion/pista.wav
+                                                         -> cancion_IA/pista_N.wav
+
+    Si se indica --output_dir, toda la salida va ahi conservando las subcarpetas.
+    """
+    input_dir = Path(input_dir)
+    relative = Path(input_path).relative_to(input_dir)
+    output_dir = Path(output_dir) if output_dir else input_dir
+    nombre = f"{relative.stem}{output_suffix}.wav"
+
+    if len(relative.parts) == 1:
+        return output_dir / nombre
+    return output_dir / f"{relative.parts[0]}{CARPETA_SALIDA_SUFIJO}" / nombre
+
+
+def collect_audio_files(input_dir):
+    """Los audios a procesar: la raiz y un nivel de subcarpetas.
+
+    Mismo alcance que el script original (os.listdir de la raiz + os.listdir de
+    cada subcarpeta), para no sorprender con carpetas anidadas.
+    """
+    input_dir = Path(input_dir)
+    encontrados = list(list_audio_files(input_dir))
+    for subcarpeta in list_subfolders(input_dir):
+        encontrados.extend(list_audio_files(subcarpeta))
+    return encontrados
 
 
 def print_models():
@@ -442,11 +483,14 @@ def main(argv=None):
 
     output_dir.mkdir(parents=True, exist_ok=True)
     if output_dir.resolve() == input_dir.resolve():
-        print(f"Salida: {output_dir} (junto a los originales)")
+        print(
+            f"Salida: los archivos sueltos junto a los originales y las "
+            f"subcarpetas en <carpeta>{CARPETA_SALIDA_SUFIJO}/"
+        )
     else:
         print(f"Salida: {output_dir}")
 
-    audio_files = find_audio_files(input_dir)
+    audio_files = collect_audio_files(input_dir)
 
     if not audio_files:
         print(
@@ -469,10 +513,8 @@ def main(argv=None):
 
     for index, input_path in enumerate(audio_files, start=1):
         relative_path = input_path.relative_to(input_dir)
-        output_path = (
-            output_dir
-            / relative_path.parent
-            / f"{relative_path.stem}{output_suffix}.wav"
+        output_path = output_path_for(
+            input_path, input_dir, output_dir, output_suffix
         )
 
         if output_path.exists() and output_path.stat().st_size > 0:

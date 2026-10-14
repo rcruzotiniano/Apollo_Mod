@@ -37,6 +37,11 @@ No hay que instalar nada a mano: el cuaderno
 monta tu Google Drive. Solo elegí **Entorno de ejecución → Cambiar tipo de
 entorno → T4 GPU** y ejecutá las celdas.
 
+> **No instales `requirements.txt` en Colab.** Fija `torch` y `numpy` a
+> versiones concretas; si Colab trae otras, pip las reemplaza y puede degradar
+> el entorno (por ejemplo, dejar torch sin CUDA). El cuaderno ya instala lo
+> único que falta (`ml_collections`). `requirements.txt` es para Windows.
+
 ### En Windows (opcional, para pruebas)
 
 ```powershell
@@ -124,8 +129,9 @@ castigados.
 
 ## Cómo se nombran las salidas
 
-Cada modelo deja su propio sufijo, así **cambiar de modelo no reutiliza las
-salidas del otro**:
+**Archivos sueltos en la carpeta raíz**: la salida va junto al original, con el
+sufijo del modelo. Cada modelo tiene el suyo, así **cambiar de modelo no
+reutiliza las salidas del otro**:
 
 ```
 cancion.mp3            ->  cancion_N.wav    (modelo normal)
@@ -134,17 +140,25 @@ cancion.mp3            ->  cancion_N.wav    (modelo normal)
                        ->  cancion_U.wav    (modelo universal)
 ```
 
+**Archivos dentro de una subcarpeta**: la salida va a una carpeta aparte con el
+sufijo `_IA` (como siempre), y dentro el WAV lleva el del modelo:
+
+```
+Musica\cancion\pista.mp3   ->  Musica\cancion_IA\pista_N.wav
+```
+
 Reglas de procesamiento:
 
-- Las **subcarpetas se recorren** y la estructura se conserva.
+- Se procesan **la carpeta raíz y un nivel de subcarpetas**. Las carpetas
+  anidadas más adentro no se recorren.
 - Un audio que ya tiene su WAV del modelo elegido **no se reprocesa** (salvo que
   el archivo esté vacío).
-- Los archivos que ya son salidas de Apollo (`_N`, `_V`, `_V2`, `_U`, `_IA`) y
+- Los archivos que ya son salidas de Apollo (`_IA`, `_N`, `_V`, `_V2`, `_U`) y
   las carpetas `*_IA` **se ignoran como entrada**, así que podés reprocesar una
   carpeta sin miedo a encadenar salidas sobre salidas.
 - Formatos de entrada: `.wav`, `.mp3`, `.flac`, `.aiff`, `.m4a`.
-- Con `--output_dir` los resultados van a otra carpeta; sin él, quedan junto a
-  los originales.
+- Con `--output_dir` toda la salida va a esa carpeta, conservando la estructura
+  anterior (`cancion_IA\pista_N.wav`).
 
 ---
 
